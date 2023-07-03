@@ -2,6 +2,7 @@ import gc
 import os
 import re
 import time
+import math
 from pathlib import Path
 
 import torch
@@ -84,6 +85,14 @@ def load_model(model_name, loader=None):
     # Hijack attention with xformers
     if any((shared.args.xformers, shared.args.sdp_attention)):
         llama_attn_hijack.hijack_llama_attention()
+
+    if loader == 'Transformers':
+        model_vocab_size = model.get_input_embeddings().weight.size(0)
+        tokenzier_vocab_size = len(tokenizer)
+        if model_vocab_size != tokenzier_vocab_size:
+            embeddings_len = math.ceil(len(tokenizer) / 32) * 32
+            model.resize_token_embeddings(embeddings_len)
+            logger.info("Resized model embeddings to fit tokenizer and divisible by 32")
 
     logger.info(f"Loaded the model in {(time.time()-t0):.2f} seconds.\n")
     return model, tokenizer
